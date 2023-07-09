@@ -107,24 +107,22 @@ if __name__ == "__main__":
     manufacturer_links = get_main_sheet_info(CATALOGUE_URL, "c_container allmakes")
     urls = [[row.text.strip(), f"{DOMAIN}{row.get('href')}"] for row in manufacturer_links]
     df_manufacturer = pd.DataFrame(urls, columns = ["dummy_col","manufacturer","manufacturer_link"])
-    # df_manufacturer.to_csv("df_manufacturer.csv")
-    # df_manufacturer  = pd.read_csv("df_manufacturer.csv")
-    # # Get Category details and create a dataframe
+  
+    # Get Category details and create a dataframe
     logger.info("Extracting categories data")
     scraper = Scraper(urls = df_manufacturer["manufacturer_link"].to_list(),
                      domain = DOMAIN,
                      class_name = "c_container allmakes allcategories")
     df_category = pd.DataFrame(scraper.extracted_data,
                                columns = ["dummy_col","manufacturer_link", "category", "category_link"])
-    # df_category.to_csv("df_category.csv")
-    # df_category= pd.read_csv("df_category.csv")
+
     # Get Model details and create a dataframe
     logger.info("Extracting models data")
     scraper = Scraper(urls = df_category["category_link"].to_list(),
                 domain = DOMAIN,
                 class_name = "c_container allmodels")
     df_models =  pd.DataFrame(scraper.extracted_data, columns = ["dummy_col","category_link", "model", "model_link"])
-    # df_models.to_csv("df_models.csv")
+
     # Get Section details and create a dataframe
     logger.info("Extracting Sections data")
     model_links = df_models["model_link"].unique()
@@ -184,10 +182,8 @@ if __name__ == "__main__":
     else:
         df_parts_final = df_parts_intermediate
     df_parts_final.reset_index(inplace = True)
-    # df_parts.to_csv("df_parts.csv")
+    
     logger.info(f"Preparing the data for db storage")
-    # df_models= pd.read_csv("df_models_2.csv")
-    # df_parts= pd.read_csv("df_parts.csv")
     df_manufacturer, df_category, df_models, df_parts = process_dataframes(
                                                             df_manufacturer, df_category, df_models, df_parts_final
                                                         )
