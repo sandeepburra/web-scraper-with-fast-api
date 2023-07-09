@@ -17,7 +17,7 @@ This project is a Python-based web scraper that utilizes the Beautiful Soup and 
 1. Clone the repository:
 
 ```shell
-git clone sandeepburra/web-scraper-with-fast-api
+git clone [sandeepburra/web-scraper-with-fast-api](https://github.com/sandeepburra/web-scraper-with-fast-api/)
 ```
 
 2. Navigate to the project folder and run the below command
