@@ -46,10 +46,10 @@ class MasterDB():
         # Create parts table
         cursor.execute('''CREATE TABLE IF NOT EXISTS parts
                         (part_id INTEGER PRIMARY KEY,
-                        model_id INTEGER,
+                        part TEXT,
                         part_number TEXT,
                         part_name TEXT,
-                        part TEXT,
+                        model_id INTEGER,
                         FOREIGN KEY (model_id) REFERENCES models (model_id))''')
 
         conn.commit()

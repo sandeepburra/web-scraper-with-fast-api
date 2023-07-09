@@ -51,13 +51,14 @@ def process_dataframes(manufacture_df: DataFrame, df_category: DataFrame,
         df_category.set_index('category_link')['category_id'])
     
 
-    df_parts['part_id'] = range(1, len(df_parts) + 1)
+    
     df_parts = df_parts.merge(df_models[["model_link","model_id"]], how = "left", on = "model_link")
     try:
         df_parts[['part_number', 'part_name']] = df_parts["part"].astype(str).str.split('-', n=1,expand=True)
     except:
         df_parts[['part_number', 'part_name']] = 0
 
+    df_parts['part_id'] = range(1, len(df_parts) + 1)
     manufacture_df = manufacture_df[['manufacturer_id', 'manufacturer']]
     df_category = df_category[['category_id', 'category', 'manufacturer_id']]
     df_models = df_models[['model_id', 'model', 'category_id']]

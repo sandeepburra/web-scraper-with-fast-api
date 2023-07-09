@@ -106,7 +106,7 @@ if __name__ == "__main__":
     logger.info("Extracting Manufacturers data")
     manufacturer_links = get_main_sheet_info(CATALOGUE_URL, "c_container allmakes")
     urls = [[row.text.strip(), f"{DOMAIN}{row.get('href')}"] for row in manufacturer_links]
-    df_manufacturer = pd.DataFrame(urls, columns = ["dummy_col","manufacturer","manufacturer_link"])
+    df_manufacturer = pd.DataFrame(urls, columns = ["manufacturer","manufacturer_link"])
   
     # Get Category details and create a dataframe
     logger.info("Extracting categories data")
@@ -144,9 +144,8 @@ if __name__ == "__main__":
         # Append the results to the main DataFrame
         df_sections = pd.concat([df_sections,df_chunk])
         logger.info(f"Extraction of sections/parts data {i+chunk_size}/{total_models} models completed")
-        
-    df_sections_actual = df_sections.loc[df_sections.dummy.eq("yes")]
-    df_parts_intermediate = df_sections.loc[~df_sections.dummy.eq("yes")]
+    df_sections_actual = df_sections.loc[df_sections.is_section.eq("yes")]
+    df_parts_intermediate = df_sections.loc[~df_sections.is_section.eq("yes")]
     
 
     # Get Part details and create a dataframe
@@ -165,14 +164,15 @@ if __name__ == "__main__":
 
         # Perform scraping for the current chunk
         scraper = Scraper(urls=chunk, domain=DOMAIN, class_name="c_container allparts")
-        df_chunk = pd.DataFrame(scraper.extracted_data, columns=["dummy","section_link", "part", "part_link"])
+        df_chunk = pd.DataFrame(scraper.extracted_data, columns=["is_section","section_link", "part", "part_link"])
 
         # Append the results to the main DataFrame
         df_section_parts = pd.concat([df_section_parts,df_chunk])
         logger.info(f"Extraction of parts data for {i+chunk_size}/{total_sections} models completed")
-    
+        
     df_parts_intermediate.rename(columns = {"section" : "part", "section_link":"part_link"}, inplace = True)
-    df_parts_intermediate.drop(["dummy"], axis = 1, inplace = True)
+    df_parts_intermediate.drop(["is_section"], axis = 1, inplace = True)
+    
 
     if len(df_section_parts)>0:
         df_sections_actual_merged = df_sections_actual.merge(df_section_parts, how = "left", on = "section_link")
