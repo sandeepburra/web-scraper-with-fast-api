@@ -10,7 +10,7 @@ from scraper_logger import logger
 # asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class Scraper(object):
-    def __init__(self, urls:list[str], domain:str, class_name:str, tag:str = "a"):
+    def __init__(self, urls:list[str], domain:str, class_name:str, sub_class_name:str= None, tag:str = "a"):
         """This is a webscraper especially created to scrape manufacture data. It scrapes the given URL in
         asynchronous manner. So make sure to not to overload the target Website.
         
@@ -18,6 +18,7 @@ class Scraper(object):
             urls (list[str]): List of URLs to scrape
             domain (str): Domain of the website. This would be added as a suffix to the url
             class_name (str): Classname of html div to scrape the necessary data
+            sub_class_name(str): sub class in the main class- for sections data only
             tag (str, optional): html tag of links. Defaults to "a".
             
         How to run:
@@ -30,6 +31,7 @@ class Scraper(object):
         self.urls = urls
         self.domain = domain
         self.class_name = class_name
+        self.sub_class_name = sub_class_name
         self.tag = tag
         self.extracted_data  = []
         asyncio.run(self.main())
@@ -49,15 +51,15 @@ class Scraper(object):
                 # 1. Extracting the Text:
                 text = await response.text()
                 # 2. Extracting desired_details
-                all_links = await self.get_desired_details(text)
+                all_links, section = await self.get_desired_details(text)
                 if len(all_links)>0:
-                    req_data =  [[url,row.text.strip(), f"{self.domain}{row.get('href')}"] for row in all_links]
+                    req_data =  [[section, url,row.text.strip(), f"{self.domain}{row.get('href')}"] for row in all_links]
                 else:
-                    req_data = [[url, None, None]]
+                    req_data = [[section, url, None, None]]
                 return req_data
         except Exception as e:
             print(str(e))
-            return [[url, None, None]]
+            return [[None, url, None, None]]
             
     async def get_desired_details(self, content:str):
         """Extract the Useful links from the html content
@@ -72,9 +74,17 @@ class Scraper(object):
         container = soup.find(class_= self.class_name)
         if container is not None:
             all_links = container.find_all(self.tag)
+            section = "yes"
+            
         else:
-            all_links = []
-        return all_links
+            if self.class_name == "c_container modelSections":
+                container = soup.find(class_= self.sub_class_name)
+                if container is not None:
+                    section = None
+                    all_links = container.find_all(self.tag)
+                else:
+                    all_links = []
+        return all_links, section
 
     async def main(self):
         """Orchestrator of this scraper. Creates the client session and run asynchronously
@@ -96,7 +106,7 @@ if __name__ == "__main__":
     logger.info("Extracting Manufacturers data")
     manufacturer_links = get_main_sheet_info(CATALOGUE_URL, "c_container allmakes")
     urls = [[row.text.strip(), f"{DOMAIN}{row.get('href')}"] for row in manufacturer_links]
-    df_manufacturer = pd.DataFrame(urls, columns = ["manufacturer","manufacturer_link"])
+    df_manufacturer = pd.DataFrame(urls, columns = ["dummy_col","manufacturer","manufacturer_link"])
     # df_manufacturer.to_csv("df_manufacturer.csv")
     # df_manufacturer  = pd.read_csv("df_manufacturer.csv")
     # # Get Category details and create a dataframe
@@ -105,7 +115,7 @@ if __name__ == "__main__":
                      domain = DOMAIN,
                      class_name = "c_container allmakes allcategories")
     df_category = pd.DataFrame(scraper.extracted_data,
-                               columns = ["manufacturer_link", "category", "category_link"])
+                               columns = ["dummy_col","manufacturer_link", "category", "category_link"])
     # df_category.to_csv("df_category.csv")
     # df_category= pd.read_csv("df_category.csv")
     # Get Model details and create a dataframe
@@ -113,7 +123,7 @@ if __name__ == "__main__":
     scraper = Scraper(urls = df_category["category_link"].to_list(),
                 domain = DOMAIN,
                 class_name = "c_container allmodels")
-    df_models =  pd.DataFrame(scraper.extracted_data, columns = ["category_link", "model", "model_link"])
+    df_models =  pd.DataFrame(scraper.extracted_data, columns = ["dummy_col","category_link", "model", "model_link"])
     # df_models.to_csv("df_models.csv")
     # Get Section details and create a dataframe
     logger.info("Extracting Sections data")
@@ -122,52 +132,64 @@ if __name__ == "__main__":
     df_sections = pd.DataFrame()
     
     # Process model links in chunks
-    chunk_size = 25
-    for i in range(0, len(model_links), chunk_size):
+    chunk_size = 50
+    total_models = len(model_links)
+    for i in range(0, total_models, chunk_size):
         # Get the chunk of model links
         
         chunk = model_links[i:i+chunk_size]
 
         # Perform scraping for the current chunk
-        scraper = Scraper(urls=chunk, domain=DOMAIN, class_name="c_container modelSections")
-        df_chunk = pd.DataFrame(scraper.extracted_data, columns=["model_link", "section", "section_link"])
+        scraper = Scraper(urls=chunk, domain=DOMAIN, class_name="c_container modelSections", sub_class_name="c_container allparts")
+        df_chunk = pd.DataFrame(scraper.extracted_data, columns=["is_section","model_link", "section", "section_link"])
 
         # Append the results to the main DataFrame
         df_sections = pd.concat([df_sections,df_chunk])
-        logger.info(f"Extraction of sections data for {i+chunk_size} models completed")
+        logger.info(f"Extraction of sections/parts data {i+chunk_size}/{total_models} models completed")
         
+    df_sections_actual = df_sections.loc[df_sections.dummy.eq("yes")]
+    df_parts_intermediate = df_sections.loc[~df_sections.dummy.eq("yes")]
     
-    # Combining sections and models as there are very limited sections are available
-    df_models = df_models.merge(df_sections, how = "left", on = "model_link")
-    df_models.loc[df_models.section_link.isna(), "section_link"] = df_models["model_link"]
-    df_models.to_csv("df_models_2.csv")
+
     # Get Part details and create a dataframe
     logger.info("Extracting Part data") 
-    model_sections = df_models["section_link"].unique()
+    section_links = df_sections_actual["section_link"].unique()
     # Create an empty DataFrame to store the results
-    df_parts = pd.DataFrame()
-    
+    df_section_parts = pd.DataFrame()
+
     # Process model links in chunks
-    chunk_size = 5
-    for i in range(0, len(model_sections), chunk_size):
-        
+    chunk_size = 50
+    total_sections = len(section_links)
+    for i in range(0, total_sections, chunk_size):
+
         # Get the chunk of model links
-        chunk = model_sections[i:i+chunk_size]
+        chunk = section_links[i:i+chunk_size]
 
         # Perform scraping for the current chunk
         scraper = Scraper(urls=chunk, domain=DOMAIN, class_name="c_container allparts")
-        df_chunk = pd.DataFrame(scraper.extracted_data, columns=["section_link", "part", "part_link"])
+        df_chunk = pd.DataFrame(scraper.extracted_data, columns=["dummy","section_link", "part", "part_link"])
 
         # Append the results to the main DataFrame
-        df_parts = pd.concat([df_sections,df_chunk])
-        logger.info(f"Extraction of parts data for {i+chunk_size} models completed")
-        
+        df_section_parts = pd.concat([df_section_parts,df_chunk])
+        logger.info(f"Extraction of parts data for {i+chunk_size}/{total_sections} models completed")
+    
+    df_parts_intermediate.rename(columns = {"section" : "part", "section_link":"part_link"}, inplace = True)
+    df_parts_intermediate.drop(["dummy"], axis = 1, inplace = True)
+
+    if len(df_section_parts)>0:
+        df_sections_actual_merged = df_sections_actual.merge(df_section_parts, how = "left", on = "section_link")
+        df_parts_from_sections_actual_merged = df_sections_actual_merged[["section_link","part","part_link"]]
+        df_parts_intermediate.rename(columns = {"section_link":"model_link"}, inplace = True)
+        df_parts_final = pd.concat([df_parts_intermediate, df_parts_from_sections_actual_merged])
+    else:
+        df_parts_final = df_parts_intermediate
+    df_parts_final.reset_index(inplace = True)
     # df_parts.to_csv("df_parts.csv")
     logger.info(f"Preparing the data for db storage")
     # df_models= pd.read_csv("df_models_2.csv")
     # df_parts= pd.read_csv("df_parts.csv")
     df_manufacturer, df_category, df_models, df_parts = process_dataframes(
-                                                            df_manufacturer, df_category, df_models, df_parts
+                                                            df_manufacturer, df_category, df_models, df_parts_final
                                                         )
     
     

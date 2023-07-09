@@ -52,8 +52,7 @@ def process_dataframes(manufacture_df: DataFrame, df_category: DataFrame,
     
 
     df_parts['part_id'] = range(1, len(df_parts) + 1)
-    df_parts['model_id'] = df_parts['section_link'].map(
-        df_models.set_index('section_link')['model_id'])
+    df_parts = df_parts.merge(df_models[["model_link","model_id"]], how = "left", on = "model_link")
     try:
         df_parts[['part_number', 'part_name']] = df_parts["part"].astype(str).str.split('-', n=1,expand=True)
     except:
