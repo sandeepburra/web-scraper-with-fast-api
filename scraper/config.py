@@ -1,2 +1,2 @@
 CATALOGUE_URL = "https://www.urparts.com/index.cfm/page/catalogue"
-DOMAIN = "https://www.urparts.com/"
+DOMAIN = "https://www.urpartsx.com/"

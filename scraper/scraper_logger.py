@@ -6,6 +6,7 @@ logger.setLevel(logging.DEBUG)
 
 
 # Creating a formatter
+# Creating a formatter
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 # Creating a stream handler and set its level to DEBUG
