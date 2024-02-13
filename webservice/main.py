@@ -10,6 +10,8 @@ from sqlalchemy.orm import relationship
 # Create the FastAPI instance
 app = FastAPI()
 
+# for demo
+
 # Define the SQLAlchemy database connection
 pg_connection_dict = {
     'dbname': "fastapi_database",
